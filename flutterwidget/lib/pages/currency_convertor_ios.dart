@@ -80,7 +80,7 @@ class _CurrenyCunvertorCupertinoPageState
                 Icon(
                   CupertinoIcons.money_dollar,
                   color: CupertinoColors.white,
-                  size: 40,
+                  size: 14,
                 ),
                 Text(
                   "Currency Converter",
@@ -98,7 +98,7 @@ class _CurrenyCunvertorCupertinoPageState
               currentTime,
               style: const TextStyle(
                 color: CupertinoColors.white,
-                fontSize: 20,
+                fontSize: 14,
               ),
             )
           ],

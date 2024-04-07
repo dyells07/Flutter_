@@ -4,23 +4,24 @@ import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import 'dart:async';
 
-class CurrencyConvertorMaterialPage extends StatefulWidget {
-  const CurrencyConvertorMaterialPage({Key? key}) : super(key: key);
+
+class CurrencyConverterMaterialPage extends StatefulWidget {
+  const CurrencyConverterMaterialPage({Key? key}) : super(key: key);
 
   @override
-  State<CurrencyConvertorMaterialPage> createState() =>
-      _CurrencyConvertorMaterialPage();
+  State<CurrencyConverterMaterialPage> createState() =>
+      _CurrencyConverterMaterialPageState();
 }
 
-class _CurrencyConvertorMaterialPage
-    extends State<CurrencyConvertorMaterialPage> {
+class _CurrencyConverterMaterialPageState
+    extends State<CurrencyConverterMaterialPage> {
   double result = 0;
-  final TextEditingController _textEditingController =
-      TextEditingController();
+  final TextEditingController _textEditingController = TextEditingController();
   late Map<String, double> exchangeRates;
   bool isLoading = false;
   late Timer _timer;
   String currentTime = DateFormat('yyyy/MM/dd HH:mm:ss').format(DateTime.now());
+  String selectedCurrency = 'USD'; // Default selected currency
 
   @override
   void initState() {
@@ -31,84 +32,82 @@ class _CurrencyConvertorMaterialPage
 
   @override
   void dispose() {
-    _timer.cancel(); 
+    _timer.cancel();
     super.dispose();
   }
-
 
   void _startTimer() {
     _timer = Timer.periodic(Duration(seconds: 1), (timer) {
       setState(() {
-        currentTime = DateFormat('yyyy/MM/dd HH:mm:ss').format(DateTime.now()); // Update current time every second
+        currentTime = DateFormat('yyyy/MM/dd hh:mm:ss a').format(DateTime.now());
       });
     });
   }
 
-  Future<void> fetchExchangeRates() async {
+    Future<void> fetchExchangeRates() async {
     setState(() {
       isLoading = true;
     });
-    final response = await http.get(Uri.parse(
-        'https://open.er-api.com/v6/latest/USD')); // Fetch exchange rates against USD
+    final response = await http.get(Uri.parse('https://open.er-api.com/v6/latest/NPR'));
     if (response.statusCode == 200) {
       final data = json.decode(response.body);
       setState(() {
-        exchangeRates = Map<String, double>.from(data['rates']);
-        isLoading = false;
+        exchangeRates = (data['rates'] as Map<String, dynamic>).map((key, value) {
+          // Safely handle conversion to double
+          return MapEntry(key, (value is int) ? value.toDouble() : (value as num).toDouble());
+        });
       });
     } else {
-      throw Exception('Failed to load exchange rates');
+      // Consider handling the failure case, e.g., by showing an alert to the user
+      print('Failed to fetch exchange rates.');
     }
+    setState(() {
+      isLoading = false;
+    });
   }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white60,
+      backgroundColor: Colors.white,
       appBar: PreferredSize(
         preferredSize: Size.fromHeight(70),
         child: AppBar(
           backgroundColor: Colors.green,
           elevation: 0,
           centerTitle: true,
-          title:  Column(
+          title: Column(
             mainAxisAlignment: MainAxisAlignment.center,
-        
             crossAxisAlignment: CrossAxisAlignment.center,
-            
             children: [
-               const SizedBox(height: 1),
-                 const Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                   children: [
-                         Icon(
-                             Icons.monetization_on_outlined, // Icon to be appended
-                             color: Colors.white54,
-                             size:40
-                       
-                           ),
-                           Text(
-                         "Currency Converter",
-                           style: TextStyle(
-                           color: Colors.white70,
-                           fontWeight: FontWeight.bold,
-                           fontSize: 23,
-                           fontFamily: 'Roboto',
-                           ),
-                      ),
-        
-                      ],
-                 ),           
+              const SizedBox(height: 1),
+              const Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.monetization_on_outlined, // Icon
+                    color: Colors.white54,
+                    size: 40,
+                  ),
+                  Text(
+                    "X-Change",
+                    style: TextStyle(
+                      color: Colors.white70,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 23,
+                      fontFamily: 'Roboto',
+                    ),
+                  ),
+                ],
+              ),
               const SizedBox(height: 0.2),
               Text(
                 currentTime,
-                style : const TextStyle(
-                  color :Colors.white,
-                  fontSize:20,
-                )
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 20,
+                ),
               )
-        
             ],
           ),
         ),
@@ -119,13 +118,29 @@ class _CurrencyConvertorMaterialPage
             : Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
+                  DropdownButton<String>(
+                    value: selectedCurrency,
+                    onChanged: (String? newValue) {
+                      setState(() {
+                        selectedCurrency = newValue!;
+                      });
+                    },
+                    items: exchangeRates.keys.map<DropdownMenuItem<String>>((String value) {
+                      return DropdownMenuItem<String>(
+                        value: value,
+                        child: Text(value),
+                      );
+                    }).toList(),
+                  ),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Icon(
-                        Icons.attach_money,
-                        color: Colors.green,
-                        size: 45,
+                      const Text(
+                        'रु. ',
+                        style: TextStyle(
+                            color: Colors.green,
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold),
                       ),
                       const SizedBox(width: 5),
                       Text(
@@ -142,46 +157,28 @@ class _CurrencyConvertorMaterialPage
                     padding: const EdgeInsets.symmetric(horizontal: 10),
                     margin: const EdgeInsets.symmetric(vertical: 10),
                     child: TextField(
-                      style: const TextStyle(
-                        color: Colors.black,
-                        fontSize: 15,
-                      ),
                       controller: _textEditingController,
                       decoration: InputDecoration(
-                        hintText:
-                            'कृपया नेपाली रुपैयाँमा मुद्रा प्रविष्ट गर्नुहोस्',
+                        hintText: 'Enter currency to convert to Nepalese Currency',
                         hintStyle: const TextStyle(color: Colors.lightGreen),
-                        prefixIcon: const Text(
-                          '  रु.',
-                          style: TextStyle(color: Colors.green, fontSize: 24),
-                        ),
-                        prefixIconColor: const Color.fromARGB(255, 63, 220, 5),
-                        floatingLabelBehavior: FloatingLabelBehavior.auto,
+                        prefixIcon: const Icon(Icons.money),
+                        prefixIconColor: Colors.green,
                         filled: true,
                         fillColor: Colors.white,
                         focusedBorder: OutlineInputBorder(
-                          borderSide: const BorderSide(
+                          borderSide: BorderSide(
                             color: Colors.green,
-                            width: 2,
-                            style: BorderStyle.solid,
-                            strokeAlign: BorderSide.strokeAlignCenter,
                           ),
                           borderRadius: BorderRadius.circular(5),
                         ),
                         enabledBorder: OutlineInputBorder(
-                          borderSide: const BorderSide(
+                          borderSide: BorderSide(
                             color: Colors.lightGreen,
-                            width: 3,
-                            style: BorderStyle.solid,
-                            strokeAlign: BorderSide.strokeAlignCenter,
                           ),
                           borderRadius: BorderRadius.circular(5),
                         ),
                       ),
-                      keyboardType: const TextInputType.numberWithOptions(
-                        decimal: true,
-                        signed: true,
-                      ),
+                      keyboardType: TextInputType.numberWithOptions(decimal: true),
                     ),
                   ),
                   Padding(
@@ -189,16 +186,14 @@ class _CurrencyConvertorMaterialPage
                     child: TextButton(
                       onPressed: () {
                         setState(() {
-                          double amount =
-                              double.parse(_textEditingController.text);
-                          // Convert the entered amount using the selected currency exchange rate
-                          result = amount / exchangeRates['NPR']!; // Convert to NPR
+                          double amount = double.parse(_textEditingController.text);
+                          result = amount / (exchangeRates[selectedCurrency] ?? 0.0); // Corrected to multiply for conversion
                         });
                       },
                       style: TextButton.styleFrom(
                         backgroundColor: Colors.green,
                         foregroundColor: Colors.white,
-                        minimumSize: const Size(300, 50),
+                        minimumSize: Size(300, 50),
                       ),
                       child: const Text("Convert"),
                     ),
