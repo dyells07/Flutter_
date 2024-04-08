@@ -33,6 +33,7 @@ dependencies:
   http: ^0.13.3
   intl: ^0.17.0
   dropdown_search: ^3.0.0 
+  flutter_typeahead: ^3.1.3
 
 
 

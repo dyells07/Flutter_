@@ -58,6 +58,7 @@ Widget build(BuildContext context) {
       ],
     ),
     bottomNavigationBar:BottomAppBar(
+      color:Colors.white,
       child:Center(child: Text( '© ${DateTime.now().year} NUSDR',style: const TextStyle(color: Colors.green,fontSize: 24,fontWeight: FontWeight.bold),)) )
   );
 }
