@@ -1,6 +1,9 @@
 import 'dart:async';
 import 'dart:convert';
+import 'package:currency_code_to_currency_symbol/currency_code_to_currency_symbol.dart';
+import 'package:currency_picker/currency_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/widgets.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import 'package:flutter_typeahead/flutter_typeahead.dart';
@@ -13,6 +16,8 @@ class CurrencyConverterMaterialPage extends StatefulWidget {
       _CurrencyConverterMaterialPageState();
 }
 
+TextEditingController _controller = TextEditingController();
+
 class _CurrencyConverterMaterialPageState
     extends State<CurrencyConverterMaterialPage> {
   double result = 0;
@@ -22,6 +27,9 @@ class _CurrencyConverterMaterialPageState
   late Timer _timer;
   String currentTime = DateFormat('yyyy/MM/dd HH:mm:ss').format(DateTime.now());
   String selectedCurrency = 'USD';
+  CurrencyCode selectedCur = CurrencyCode.USD;
+  String currencyIcon = '';
+
   Map<String, String> currencyNames = {
     'USD': 'United States Dollar (USD)',
     'EUR': 'Euro (EUR)',
@@ -232,6 +240,19 @@ class _CurrencyConverterMaterialPageState
     });
   }
 
+String countryCodeToEmoji(String countryCode) {
+  countryCode = countryCode.toUpperCase();
+  
+  int base = 0x1F1E6; 
+  int offsetA = 'A'.codeUnitAt(0);
+  int firstChar = countryCode.codeUnitAt(0) - offsetA + base;
+  int secondChar = countryCode.codeUnitAt(1) - offsetA + base;
+  
+  return String.fromCharCode(firstChar) + String.fromCharCode(secondChar);
+}
+
+
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -271,7 +292,7 @@ class _CurrencyConverterMaterialPageState
           child: isLoading
               ? const CircularProgressIndicator()
               : Container(
-                  height: 300,
+                  height: 500,
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
@@ -279,10 +300,10 @@ class _CurrencyConverterMaterialPageState
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           const Text(
-                            'रु. ',
+                            'रु.',
                             style: TextStyle(
                                 color: Colors.green,
-                                fontSize: 24,
+                                fontSize: 30,
                                 fontWeight: FontWeight.bold),
                           ),
                           SizedBox(width: 5),
@@ -297,95 +318,73 @@ class _CurrencyConverterMaterialPageState
                         ],
                       ),
                       SizedBox(height: 10),
+                      //START Here
+
                       Padding(
-                        padding: const EdgeInsets.all(10.0),
+                        padding: const EdgeInsets.all(8.0),
                         child: GestureDetector(
                           onTap: () {
-                            FocusScope.of(context).requestFocus(FocusNode());
+                            showCurrencyPicker(
+                              context: context,
+                              showFlag: true,
+                              showSearchField: true,
+                              showCurrencyName: true,
+                              showCurrencyCode: true,
+                              favorite: ['eur'],
+                              onSelect: (Currency currency) {
+                                setState(() {
+                                  selectedCurrency = currency.code;
+                                  currencyIcon = currency.symbol;
+                                  _controller.text = '${countryCodeToEmoji(currency.code)} ${currency.code} - ${currency.name}';
+
+                                });
+                              },
+                            );
                           },
-                          child: Autocomplete<String>(
-                            optionsBuilder:
-                                (TextEditingValue textEditingValue) {
-                              String searchText =
-                                  textEditingValue.text.toLowerCase();
-                              List<String> filteredOptions = [];
-                              for (String option in exchangeRates.keys) {
-                                String currencyName =
-                                    currencyNames[option] ?? option;
-                                if (option.toLowerCase().contains(searchText) ||
-                                    currencyName
-                                        .toLowerCase()
-                                        .contains(searchText)) {
-                                  filteredOptions.add(option);
-                                }
-                              }
-                              return filteredOptions;
-                            },
-                            onSelected: (String selectedValue) {
-                              setState(() {
-                                selectedCurrency = selectedValue;
-                              });
-                            },
-                            optionsViewBuilder: (BuildContext context,
-                                AutocompleteOnSelected<String> onSelected,
-                                Iterable<String> options) {
-                              return Material(
-                                elevation: 4.0,
-                                child: SizedBox(
-                                  height: 200.0,
-                                  child:
-                                      ListView(
-                                        children: options.map((String option) {
-                                          String currencyName =
-                                              currencyNames[option] ?? option;
-                                          return ListTile(
-                                            title: Text(currencyName),
-                                            onTap: () {
-                                                FocusScope.of(context).requestFocus(FocusNode());
-                                              onSelected(option);
-                                            },
-                                          );
-                                        }).toList(),
-                                      ),
+                          child: AbsorbPointer(
+                            child: TextFormField(
+                              controller: _controller,
+                              readOnly: true,
+                              decoration: const InputDecoration(
+                                labelText: 'Selected Currency',
+                                labelStyle: TextStyle(color: Colors.green),
+                                suffixIcon: Icon(Icons.arrow_drop_down),
+                                border: OutlineInputBorder(
+                                  borderSide: BorderSide(
+                                      color: Colors.green,
+                                      style: BorderStyle.solid),
                                 ),
-                              );
-                            },
-                            fieldViewBuilder: (BuildContext context,
-                                TextEditingController textEditingController,
-                                FocusNode focusNode,
-                                VoidCallback onFieldSubmitted) {
-                              return TextFormField(
-                                controller: textEditingController,
-                                focusNode: focusNode,
-                                decoration: InputDecoration(
-                                  labelText: 'Search for a currency',
-                                  labelStyle: TextStyle(color: Colors.green),
-                                  border: OutlineInputBorder(
-                                    borderSide:
-                                        BorderSide(color: Colors.green,style:BorderStyle.solid),
-                                  ),
-                                ),
-                                onChanged: (String searchText) {
-                                  Future.delayed(Duration(milliseconds: 300),
-                                      () {
-                                    setState(() {});
-                                  });
-                                },
-                              );
-                            },
-                            displayStringForOption: (String option) =>
-                                currencyNames[option] ?? option,
+                              ),
+                            ),
                           ),
                         ),
                       ),
-                      SizedBox(height: 5),
+
+                      //END HERE
+                      const SizedBox(height: 5),
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 10),
                         child: TextField(
                           controller: _textEditingController,
-                          decoration: const InputDecoration(
-                            hintText: 'Enter currency to convert to NPR',
-                            prefixIcon: Icon(Icons.money),
+                          decoration: InputDecoration(
+                            hintText: 'Enter '+ selectedCurrency + ' to convert to NPR',
+                            prefix: Container(
+                              margin: EdgeInsets.only(
+                                  right: 5), // Add margin if necessary
+                              child: Row(
+                                mainAxisSize: MainAxisSize
+                                    .min, // Use only the needed space
+                                children: [
+                                  Text(currencyIcon,
+                                      style: TextStyle(
+                                        fontSize:
+                                            18, // Adjust font size as needed
+                                        // Ensure the TextStyle here can support emoji characters
+                                      )),
+                                  // Any other widgets or text you want to include
+                                ],
+                              ),
+                            ),
                             filled: true,
                             fillColor: Colors.white,
                             focusedBorder: OutlineInputBorder(
@@ -399,6 +398,7 @@ class _CurrencyConverterMaterialPageState
                               TextInputType.numberWithOptions(decimal: true),
                         ),
                       ),
+
                       Padding(
                         padding: const EdgeInsets.all(10.0),
                         child: TextButton(
@@ -406,6 +406,7 @@ class _CurrencyConverterMaterialPageState
                             final amount =
                                 double.tryParse(_textEditingController.text) ??
                                     0;
+
                             setState(() {
                               result = amount /
                                   (exchangeRates[selectedCurrency] ?? 0.0);
@@ -419,6 +420,42 @@ class _CurrencyConverterMaterialPageState
                           child: const Text("Convert"),
                         ),
                       ),
+                      //         DropdownButton<CurrencyCode>(
+                      //   value: selectedCur,
+                      //   onChanged: (value) {
+                      //     setState(() {
+                      //       selectedCur = value!;
+                      //     });
+                      //   },
+                      //   items: CurrencyCode.values.map((CurrencyCode code) {
+                      //     return DropdownMenuItem<CurrencyCode>(
+                      //       value: code,
+                      //       child: Text(code.toString().split('.').last),
+                      //     );
+                      //   }).toList(),
+                      // ),
+                      // Text(
+                      //   'Symbol: ${getCurrencySymbolENUM(selectedCur)}',
+                      //   style: TextStyle(fontSize: 24),
+                      // ),
+                      // Center(
+                      //   child: ElevatedButton(
+                      //     onPressed: () {
+                      //       showCurrencyPicker(
+                      //         context: context,
+                      //         showFlag: true,
+                      //         showSearchField: true,
+                      //         showCurrencyName: true,
+                      //         showCurrencyCode: true,
+                      //         favorite: ['eur'],
+                      //         onSelect: (Currency currency) {
+                      //           Text('Select currency: ${currency.name}');
+                      //         },
+                      //       );
+                      //     },
+                      //     child: const Text('Show currency picker'),
+                      //   ),
+                      // ),
                     ],
                   ),
                 ),
