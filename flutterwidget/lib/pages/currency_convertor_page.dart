@@ -332,27 +332,21 @@ class _CurrencyConverterMaterialPageState
                               return Material(
                                 elevation: 4.0,
                                 child: SizedBox(
-                                  height: 184.0,
+                                  height: 200.0,
                                   child:
-                                     NotificationListener<ScrollNotification>(
-                                    onNotification: (ScrollNotification
-                                        scrollNotification) {
-                                      FocusManager.instance.primaryFocus?.unfocus();
-                                      return true;
-                                    },
-                                    child: ListView(
-                                      children: options.map((String option) {
-                                        String currencyName =
-                                            currencyNames[option] ?? option;
-                                        return ListTile(
-                                          title: Text(currencyName),
-                                          onTap: () {
-                                            onSelected(option);
-                                          },
-                                        );
-                                      }).toList(),
-                                    ),
-                                  ),
+                                      ListView(
+                                        children: options.map((String option) {
+                                          String currencyName =
+                                              currencyNames[option] ?? option;
+                                          return ListTile(
+                                            title: Text(currencyName),
+                                            onTap: () {
+                                                FocusScope.of(context).requestFocus(FocusNode());
+                                              onSelected(option);
+                                            },
+                                          );
+                                        }).toList(),
+                                      ),
                                 ),
                               );
                             },
@@ -368,7 +362,7 @@ class _CurrencyConverterMaterialPageState
                                   labelStyle: TextStyle(color: Colors.green),
                                   border: OutlineInputBorder(
                                     borderSide:
-                                        BorderSide(color: Colors.lightGreen),
+                                        BorderSide(color: Colors.green,style:BorderStyle.solid),
                                   ),
                                 ),
                                 onChanged: (String searchText) {
