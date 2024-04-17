@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'dart:developer';
 import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:flutter/widgets.dart';
 import 'package:http/http.dart' as http;
 import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
@@ -10,7 +9,9 @@ import 'package:intl/intl.dart';
 import 'package:weather_app/pages/additional_info_item.dart';
 import 'package:weather_app/utilis/apikey.dart';
 import 'package:weather_app/pages/hourly_forecast_item.dart';
- // Ensure this file exists and contains your OpenWeatherMap API key
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
+
 
 class WeatherScreen extends StatefulWidget {
   const WeatherScreen({super.key});
@@ -21,6 +22,9 @@ class WeatherScreen extends StatefulWidget {
 
 class _WeatherScreenState extends State<WeatherScreen> {
   Future<Map<String, dynamic>>? weather;
+  late LatLng _currentLocation;
+  MapController _mapController = MapController();
+
   String cityName = 'Searching...';
 
   @override
@@ -30,8 +34,7 @@ class _WeatherScreenState extends State<WeatherScreen> {
   }
 
   Future<void> _initWeather() async {
-    var permission = await Geolocator.
-    checkPermission();
+    var permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.denied ||
         permission == LocationPermission.deniedForever) {
       permission = await Geolocator.requestPermission();
@@ -60,6 +63,7 @@ class _WeatherScreenState extends State<WeatherScreen> {
       if (placemarks.isNotEmpty) {
         setState(() {
           cityName = placemarks.first.locality ?? 'Unknown Location';
+           _currentLocation = LatLng(position.latitude, position.longitude);
         });
       }
       weather = getCurrentWeather();
@@ -73,12 +77,10 @@ class _WeatherScreenState extends State<WeatherScreen> {
 
   Future<Map<String, dynamic>> getCurrentWeather() async {
     try {
-      final response = await http.get(
-        Uri.parse(
-            'https://api.openweathermap.org/data/2.5/weather?q=$cityName&appid=$openWeatherAPIKey&units=metric'),
-      );
-      
-    
+      final response = await http.get(Uri.parse(
+        // 'https://api.openweathermap.org/data/2.5/weather?q=$cityName&appid=$openWeatherAPIKey&units=metric'),
+        'https://api.openweathermap.org/data/2.5/forecast?q=$cityName&appid=$openWeatherAPIKey&units=metric',
+      ));
 
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
@@ -152,7 +154,6 @@ class _WeatherScreenState extends State<WeatherScreen> {
           height: 80,
           width: 80,
         ),
-        // leading:  Text(' $cityName'),
         centerTitle: true,
         actions: [
           IconButton(
@@ -173,22 +174,24 @@ class _WeatherScreenState extends State<WeatherScreen> {
           }
 
           if (snapshot.hasData) {
-
             final currentWeather = snapshot.data!;
-            final currentTemp = currentWeather['main']['temp'].toString();
-            String fullDescription = currentWeather['weather'][0]['description'].toString();
+            final currentWeatherData = currentWeather['list'][0];
+
+            final currentTemp = currentWeatherData['main']['temp'].toString();
+            String fullDescription =
+                currentWeatherData['weather'][0]['description'].toString();
             String firstLetter = fullDescription.substring(0, 1).toUpperCase();
             String restOfDescription = fullDescription.substring(1);
             String description = firstLetter + restOfDescription;
 
-
-
-
-
-            final currentSky = currentWeather['weather'][0]['main'].toString();
-            final currentPressure = currentWeather['main']['pressure'].toString();
-            final currentWindSpeed = currentWeather['wind']['speed'].toString();
-            final currentHumidity = currentWeather['main']['humidity'].toString();
+            final currentSky =
+                currentWeatherData['weather'][0]['main'].toString();
+            final currentPressure =
+                currentWeatherData['main']['pressure'].toString();
+            final currentWindSpeed =
+                currentWeatherData['wind']['speed'].toString();
+            final currentHumidity =
+                currentWeatherData['main']['humidity'].toString();
 
             return Padding(
               padding: const EdgeInsets.all(16.0),
@@ -278,58 +281,104 @@ class _WeatherScreenState extends State<WeatherScreen> {
                   ),
                   const SizedBox(height: 8),
                   SizedBox(
-                    height:120,
-                    child:ListView.builder(
+                    height: 120,
+                    child: ListView.builder(
                       itemCount: 5,
                       scrollDirection: Axis.horizontal,
-                      itemBuilder: (context,index)
-                      {
-
-                        final hourlyForecast = currentWeather['list'][index + 1];
-                        final hourlySky = currentWeather['list'][index + 1]['weather'][0]['main'];
+                      itemBuilder: (context, index) {
+                        final hourlyForecast =
+                            currentWeather['list'][index + 1];
+                        final hourlySky = currentWeather['list'][index + 1]
+                            ['weather'][0]['main'];
                         final hourlyTemp =
-                          currentWeather['main']['temp'].toString();
-                          final time = DateTime.parse(hourlyForecast['dt_txt']);
-                          return HourlyForecastItem(
-                            time: DateFormat.j().format(time), 
-                            temperature: hourlyTemp,
-                            icon: hourlySky == 'Clouds' || hourlySky == 'Rain'
-                            ? Icons.cloud
-                            : Icons.sunny,
-                          );
+                            hourlyForecast['main']['temp'].toString();
+                        final time = DateTime.parse(hourlyForecast['dt_txt']);
+                        return HourlyForecastItem(
+                          time: DateFormat.j().format(time),
+                          temperature: '$hourlyTemp °C',
+                          icon: hourlySky == 'Clouds' || hourlySky == 'Rain'
+                              ? Icons.cloud
+                              : Icons.sunny,
+                        );
                       },
-
                     ),
                   ),
-                    const SizedBox(height: 20),
-                           const Text(
-                  'Additional Information',
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
+                  const SizedBox(height: 20),
+                  const Text(
+                    'Additional Information',
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
-                  children: [
-                    AdditionalInfoItem(
-                      icon: Icons.water_drop,
-                      label: 'Humidity',
-                      value: currentHumidity.toString(),
+                  const SizedBox(height: 8),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: [
+                      AdditionalInfoItem(
+                        icon: Icons.water_drop,
+                        label: 'Humidity',
+                        value: currentHumidity.toString(),
+                      ),
+                      AdditionalInfoItem(
+                        icon: Icons.air,
+                        label: 'Wind Speed',
+                        value: currentWindSpeed.toString(),
+                      ),
+                      AdditionalInfoItem(
+                        icon: Icons.beach_access,
+                        label: 'Pressure',
+                        value: currentPressure.toString(),
+                      ),
+                    ],
+                  ),
+                  const Text(
+                    'Additional Information',
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
                     ),
-                    AdditionalInfoItem(
-                      icon: Icons.air,
-                      label: 'Wind Speed',
-                      value: currentWindSpeed.toString(),
+                  ),
+                  const SizedBox(height: 2),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: [
+                      SizedBox(
+                        height: 30, // Specify the desired height
+                        width: 30, // Specify the desired width
+                        child: FlutterMap(
+        mapController: _mapController,
+        options: MapOptions(
+          center: _currentLocation ?? LatLng(28.2333, 83.9833),
+          zoom: 14.0,
+        ),
+        layers: [
+          TileLayerOptions(
+            urlTemplate: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+            subdomains: ['a', 'b', 'c'],
+          ),
+          MarkerLayerOptions(
+            markers: _currentLocation != null
+                ? [
+                    Marker(
+                      width: 80.0,
+                      height: 80.0,
+                      point: _currentLocation,
+                      builder: (ctx) => Icon(
+                        Icons.location_on,
+                        color: Colors.red,
+                        size: 50.0,
+                      ),
                     ),
-                    AdditionalInfoItem(
-                      icon: Icons.beach_access,
-                      label: 'Pressure',
-                      value: currentPressure.toString(),
-                    ),
-                  ],
-                ),
+                  ]
+                : [],
+          ),
+        ],
+      ),
+    ),
+                      ),
+                    ],
+                  ),
                 ],
               ),
             );
@@ -339,21 +388,22 @@ class _WeatherScreenState extends State<WeatherScreen> {
         },
       ),
       bottomNavigationBar: BottomAppBar(
-        color:Theme.of(context).primaryColor,
+        color: Theme.of(context).primaryColor,
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 10.0),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Text('Weather in $cityName',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),)
+              Text(
+                'Weather in $cityName',
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              )
             ],
           ),
-          
-          ),
+        ),
       ),
     );
   }
