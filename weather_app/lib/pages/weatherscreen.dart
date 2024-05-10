@@ -1,20 +1,21 @@
+
+
+import 'dart:async';
 import 'dart:convert';
-import 'dart:developer';
+import 'dart:math';
 import 'dart:ui';
+
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:intl/intl.dart';
 import 'package:weather_app/pages/additional_info_item.dart';
-import 'package:weather_app/utilis/apikey.dart';
 import 'package:weather_app/pages/hourly_forecast_item.dart';
-import 'package:flutter_map/flutter_map.dart';
-import 'package:latlong2/latlong.dart';
-
+import 'package:weather_app/utilis/apikey.dart';
 
 class WeatherScreen extends StatefulWidget {
-  const WeatherScreen({super.key});
+  const WeatherScreen({Key? key});
 
   @override
   State<WeatherScreen> createState() => _WeatherScreenState();
@@ -22,10 +23,15 @@ class WeatherScreen extends StatefulWidget {
 
 class _WeatherScreenState extends State<WeatherScreen> {
   Future<Map<String, dynamic>>? weather;
-  late LatLng _currentLocation;
-  MapController _mapController = MapController();
 
   String cityName = 'Searching...';
+  final Completer<GoogleMapController> _controller =
+      Completer<GoogleMapController>();
+      
+        get http => null;
+   
+   
+ //Future<LocationData>? _locationData;
 
   @override
   void initState() {
@@ -48,6 +54,7 @@ class _WeatherScreenState extends State<WeatherScreen> {
         _showServiceDisabledDialog();
         return;
       }
+    //  _locationData = location.getLocation();
       _updateWeather();
     } else {
       _showPermissionDialog(permission == LocationPermission.deniedForever);
@@ -56,19 +63,23 @@ class _WeatherScreenState extends State<WeatherScreen> {
 
   Future<void> _updateWeather() async {
     try {
-      Position position = await Geolocator.getCurrentPosition(
-          desiredAccuracy: LocationAccuracy.high);
+      Position position =
+          await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
       List<Placemark> placemarks =
           await placemarkFromCoordinates(position.latitude, position.longitude);
       if (placemarks.isNotEmpty) {
         setState(() {
           cityName = placemarks.first.locality ?? 'Unknown Location';
-           _currentLocation = LatLng(position.latitude, position.longitude);
         });
       }
+      //  _kGooglePlex = CameraPosition(
+      //   target: LatLng(position.latitude, position.longitude),
+      //   zoom: 14.4746,
+      // );
+
+      // Call function to get current weather
       weather = getCurrentWeather();
     } catch (e) {
-      log('Failed to get location: ${e.toString()}');
       setState(() {
         cityName = 'Location Unavailable';
       });
@@ -78,7 +89,6 @@ class _WeatherScreenState extends State<WeatherScreen> {
   Future<Map<String, dynamic>> getCurrentWeather() async {
     try {
       final response = await http.get(Uri.parse(
-        // 'https://api.openweathermap.org/data/2.5/weather?q=$cityName&appid=$openWeatherAPIKey&units=metric'),
         'https://api.openweathermap.org/data/2.5/forecast?q=$cityName&appid=$openWeatherAPIKey&units=metric',
       ));
 
@@ -89,7 +99,6 @@ class _WeatherScreenState extends State<WeatherScreen> {
             'Failed to load weather data with status code: ${response.statusCode}');
       }
     } catch (e) {
-      log('Error fetching weather data: ${e.toString()}');
       throw Exception('Failed to load weather data: ${e.toString()}');
     }
   }
@@ -283,7 +292,7 @@ class _WeatherScreenState extends State<WeatherScreen> {
                   SizedBox(
                     height: 120,
                     child: ListView.builder(
-                      itemCount: 5,
+                      itemCount: 10,
                       scrollDirection: Axis.horizontal,
                       itemBuilder: (context, index) {
                         final hourlyForecast =
@@ -292,7 +301,8 @@ class _WeatherScreenState extends State<WeatherScreen> {
                             ['weather'][0]['main'];
                         final hourlyTemp =
                             hourlyForecast['main']['temp'].toString();
-                        final time = DateTime.parse(hourlyForecast['dt_txt']);
+                        final time =
+                            DateTime.parse(hourlyForecast['dt_txt']);
                         return HourlyForecastItem(
                           time: DateFormat.j().format(time),
                           temperature: '$hourlyTemp °C',
@@ -333,51 +343,30 @@ class _WeatherScreenState extends State<WeatherScreen> {
                     ],
                   ),
                   const Text(
-                    'Additional Information',
+                    'Current Location',
                     style: TextStyle(
                       fontSize: 24,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-                  const SizedBox(height: 2),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
-                    children: [
-                      SizedBox(
-                        height: 30, // Specify the desired height
-                        width: 30, // Specify the desired width
-                        child: FlutterMap(
-        mapController: _mapController,
-        options: MapOptions(
-          center: _currentLocation ?? LatLng(28.2333, 83.9833),
-          zoom: 14.0,
+                   SizedBox(
+                    height: 120,
+                    child: GoogleMap(
+        initialCameraPosition: const CameraPosition(
+          target: LatLng(37.422, -122.084), // Set the initial location (latitude and longitude)
+          zoom: 15.0, // Adjust the zoom level
         ),
-        layers: [
-          TileLayerOptions(
-            urlTemplate: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-            subdomains: ['a', 'b', 'c'],
+        markers: {
+          const Marker(
+            markerId: MarkerId('marker_1'), // Marker identifier
+            position: LatLng(37.422, -122.084), // Marker position
+            infoWindow: InfoWindow(
+              title: 'Googleplex', // Title shown when marker is tapped
+              snippet: 'Google Headquarters', // Additional information
+            ),
           ),
-          MarkerLayerOptions(
-            markers: _currentLocation != null
-                ? [
-                    Marker(
-                      width: 80.0,
-                      height: 80.0,
-                      point: _currentLocation,
-                      builder: (ctx) => Icon(
-                        Icons.location_on,
-                        color: Colors.red,
-                        size: 50.0,
-                      ),
-                    ),
-                  ]
-                : [],
-          ),
-        ],
+        },
       ),
-    ),
-                      ),
-                    ],
                   ),
                 ],
               ),
