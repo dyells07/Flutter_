@@ -1,8 +1,5 @@
-
-
 import 'dart:async';
 import 'dart:convert';
-import 'dart:math';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
@@ -10,6 +7,7 @@ import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:intl/intl.dart';
+import 'package:http/http.dart' as http;
 import 'package:weather_app/pages/additional_info_item.dart';
 import 'package:weather_app/pages/hourly_forecast_item.dart';
 import 'package:weather_app/utilis/apikey.dart';
@@ -27,11 +25,6 @@ class _WeatherScreenState extends State<WeatherScreen> {
   String cityName = 'Searching...';
   final Completer<GoogleMapController> _controller =
       Completer<GoogleMapController>();
-      
-        get http => null;
-   
-   
- //Future<LocationData>? _locationData;
 
   @override
   void initState() {
@@ -54,7 +47,6 @@ class _WeatherScreenState extends State<WeatherScreen> {
         _showServiceDisabledDialog();
         return;
       }
-    //  _locationData = location.getLocation();
       _updateWeather();
     } else {
       _showPermissionDialog(permission == LocationPermission.deniedForever);
@@ -63,8 +55,8 @@ class _WeatherScreenState extends State<WeatherScreen> {
 
   Future<void> _updateWeather() async {
     try {
-      Position position =
-          await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
+      Position position = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.high);
       List<Placemark> placemarks =
           await placemarkFromCoordinates(position.latitude, position.longitude);
       if (placemarks.isNotEmpty) {
@@ -72,13 +64,9 @@ class _WeatherScreenState extends State<WeatherScreen> {
           cityName = placemarks.first.locality ?? 'Unknown Location';
         });
       }
-      //  _kGooglePlex = CameraPosition(
-      //   target: LatLng(position.latitude, position.longitude),
-      //   zoom: 14.4746,
-      // );
 
-      // Call function to get current weather
-      weather = getCurrentWeather();
+      weather = getCurrentWeather(cityName);
+      _moveToCurrentLocation(position);
     } catch (e) {
       setState(() {
         cityName = 'Location Unavailable';
@@ -86,7 +74,7 @@ class _WeatherScreenState extends State<WeatherScreen> {
     }
   }
 
-  Future<Map<String, dynamic>> getCurrentWeather() async {
+  Future<Map<String, dynamic>> getCurrentWeather(String cityName) async {
     try {
       final response = await http.get(Uri.parse(
         'https://api.openweathermap.org/data/2.5/forecast?q=$cityName&appid=$openWeatherAPIKey&units=metric',
@@ -114,7 +102,6 @@ class _WeatherScreenState extends State<WeatherScreen> {
           TextButton(
             child: const Text("Open Settings"),
             onPressed: () {
-              // Open location settings for the user to enable location services
               Geolocator.openLocationSettings();
               Navigator.of(context).pop();
             },
@@ -152,6 +139,16 @@ class _WeatherScreenState extends State<WeatherScreen> {
         ],
       ),
     );
+  }
+
+  void _moveToCurrentLocation(Position position) async {
+    final GoogleMapController controller = await _controller.future;
+    controller.animateCamera(CameraUpdate.newCameraPosition(
+      CameraPosition(
+        target: LatLng(position.latitude, position.longitude),
+        zoom: 15.0,
+      ),
+    ));
   }
 
   @override
@@ -202,173 +199,173 @@ class _WeatherScreenState extends State<WeatherScreen> {
             final currentHumidity =
                 currentWeatherData['main']['humidity'].toString();
 
-            return Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  SizedBox(
-                    width: double.infinity,
-                    child: Card(
-                      elevation: 10,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(16),
-                        child: BackdropFilter(
-                          filter: ImageFilter.blur(
-                            sigmaX: 10,
-                            sigmaY: 10,
-                          ),
-                          child: Padding(
-                            padding: const EdgeInsets.all(16.0),
-                            child: Column(
-                              children: [
-                                Text(
-                                  '$currentTemp °C',
-                                  style: const TextStyle(
-                                    fontSize: 32,
-                                    fontWeight: FontWeight.bold,
+            return SingleChildScrollView(
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SizedBox(
+                      width: double.infinity,
+                      child: Card(
+                        elevation: 10,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(16),
+                          child: BackdropFilter(
+                            filter: ImageFilter.blur(
+                              sigmaX: 10,
+                              sigmaY: 10,
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.all(16.0),
+                              child: Column(
+                                children: [
+                                  Text(
+                                    '$currentTemp °C',
+                                    style: const TextStyle(
+                                      fontSize: 32,
+                                      fontWeight: FontWeight.bold,
+                                    ),
                                   ),
-                                ),
-                                const SizedBox(height: 16),
-                                Icon(
-                                  currentSky == 'Clear'
-                                      ? Icons.wb_sunny
-                                      : currentSky == 'Clouds'
-                                          ? Icons.cloud
-                                          : currentSky == 'Rain'
-                                              ? Icons.grain
-                                              : currentSky == 'Thunderstorm'
-                                                  ? Icons.flash_on
-                                                  : currentSky == 'Snow'
-                                                      ? Icons.ac_unit
-                                                      : currentSky == 'Mist' ||
-                                                              currentSky ==
-                                                                  'Smoke' ||
-                                                              currentSky ==
-                                                                  'Haze' ||
-                                                              currentSky ==
-                                                                  'Dust' ||
-                                                              currentSky ==
-                                                                  'Fog' ||
-                                                              currentSky ==
-                                                                  'Sand' ||
-                                                              currentSky ==
-                                                                  'Ash'
-                                                          ? Icons.filter_drama
-                                                          : currentSky ==
-                                                                      'Squall' ||
-                                                                  currentSky ==
-                                                                      'Tornado'
-                                                              ? Icons.cyclone
-                                                              : Icons.error,
-                                  size: 64,
-                                ),
-                                const SizedBox(height: 16),
-                                Text(
-                                  description,
-                                  style: const TextStyle(
-                                    fontSize: 20,
+                                  const SizedBox(height: 16),
+                                  Icon(
+                                    currentSky == 'Clear'
+                                        ? Icons.wb_sunny
+                                        : currentSky == 'Clouds'
+                                            ? Icons.cloud
+                                            : currentSky == 'Rain'
+                                                ? Icons.grain
+                                                : currentSky ==
+                                                        'Thunderstorm'
+                                                    ? Icons.flash_on
+                                                    : currentSky == 'Snow'
+                                                        ? Icons.ac_unit
+                                                        : currentSky ==
+                                                                    'Mist' ||
+                                                                currentSky ==
+                                                                    'Smoke' ||
+                                                                currentSky ==
+                                                                    'Haze' ||
+                                                                currentSky ==
+                                                                    'Dust' ||
+                                                                currentSky ==
+                                                                    'Fog' ||
+                                                                currentSky ==
+                                                                    'Sand' ||
+                                                                currentSky ==
+                                                                    'Ash'
+                                                            ? Icons.filter_drama
+                                                            : currentSky ==
+                                                                        'Squall' ||
+                                                                    currentSky ==
+                                                                        'Tornado'
+                                                                ? Icons.cyclone
+                                                                : Icons.error,
+                                    size: 64,
                                   ),
-                                )
-                              ],
+                                  const SizedBox(height: 16),
+                                  Text(
+                                    description,
+                                    style: const TextStyle(
+                                      fontSize: 20,
+                                    ),
+                                  )
+                                ],
+                              ),
                             ),
                           ),
                         ),
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 20),
-                  const Text(
-                    'Hourly Forecast',
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  SizedBox(
-                    height: 120,
-                    child: ListView.builder(
-                      itemCount: 10,
-                      scrollDirection: Axis.horizontal,
-                      itemBuilder: (context, index) {
-                        final hourlyForecast =
-                            currentWeather['list'][index + 1];
-                        final hourlySky = currentWeather['list'][index + 1]
-                            ['weather'][0]['main'];
-                        final hourlyTemp =
-                            hourlyForecast['main']['temp'].toString();
-                        final time =
-                            DateTime.parse(hourlyForecast['dt_txt']);
-                        return HourlyForecastItem(
-                          time: DateFormat.j().format(time),
-                          temperature: '$hourlyTemp °C',
-                          icon: hourlySky == 'Clouds' || hourlySky == 'Rain'
-                              ? Icons.cloud
-                              : Icons.sunny,
-                        );
-                      },
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  const Text(
-                    'Additional Information',
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
-                    children: [
-                      AdditionalInfoItem(
-                        icon: Icons.water_drop,
-                        label: 'Humidity',
-                        value: currentHumidity.toString(),
+                    const SizedBox(height: 20),
+                    const Text(
+                      'Hourly Forecast',
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
                       ),
-                      AdditionalInfoItem(
-                        icon: Icons.air,
-                        label: 'Wind Speed',
-                        value: currentWindSpeed.toString(),
-                      ),
-                      AdditionalInfoItem(
-                        icon: Icons.beach_access,
-                        label: 'Pressure',
-                        value: currentPressure.toString(),
-                      ),
-                    ],
-                  ),
-                  const Text(
-                    'Current Location',
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
                     ),
-                  ),
-                   SizedBox(
-                    height: 120,
-                    child: GoogleMap(
-        initialCameraPosition: const CameraPosition(
-          target: LatLng(37.422, -122.084), // Set the initial location (latitude and longitude)
-          zoom: 15.0, // Adjust the zoom level
-        ),
-        markers: {
-          const Marker(
-            markerId: MarkerId('marker_1'), // Marker identifier
-            position: LatLng(37.422, -122.084), // Marker position
-            infoWindow: InfoWindow(
-              title: 'Googleplex', // Title shown when marker is tapped
-              snippet: 'Google Headquarters', // Additional information
-            ),
-          ),
-        },
-      ),
-                  ),
-                ],
+                    const SizedBox(height: 8),
+                    SizedBox(
+                      height: 120,
+                      child: ListView.builder(
+                        itemCount: 10,
+                        scrollDirection: Axis.horizontal,
+                        itemBuilder: (context, index) {
+                          final hourlyForecast =
+                              currentWeather['list'][index + 1];
+                          final hourlySky = currentWeather['list'][index + 1]
+                              ['weather'][0]['main'];
+                          final hourlyTemp =
+                              hourlyForecast['main']['temp'].toString();
+                          final time =
+                              DateTime.parse(hourlyForecast['dt_txt']);
+                          return HourlyForecastItem(
+                            time: DateFormat.j().format(time),
+                            temperature: '$hourlyTemp °C',
+                            icon: hourlySky == 'Clouds' || hourlySky == 'Rain'
+                                ? Icons.cloud
+                                : Icons.sunny,
+                          );
+                        },
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    const Text(
+                      'Additional Information',
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: [
+                        AdditionalInfoItem(
+                          icon: Icons.water_drop,
+                          label: 'Humidity',
+                          value: currentHumidity.toString(),
+                        ),
+                        AdditionalInfoItem(
+                          icon: Icons.air,
+                          label: 'Wind Speed',
+                          value: currentWindSpeed.toString(),
+                        ),
+                        AdditionalInfoItem(
+                          icon: Icons.beach_access,
+                          label: 'Pressure',
+                          value: currentPressure.toString(),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
+                    const Text(
+                      'Current Location',
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    SizedBox(
+                      height: 200,
+                      child: GoogleMap(
+                        mapType: MapType.normal,
+                        myLocationEnabled: true,
+                        initialCameraPosition: CameraPosition(
+                          target: LatLng(0, 0),
+                          zoom: 15.0,
+                        ),
+                        onMapCreated: (GoogleMapController controller) {
+                          _controller.complete(controller);
+                        },
+                      ),
+                    ),
+                  ],
+                ),
               ),
             );
           }
@@ -397,3 +394,4 @@ class _WeatherScreenState extends State<WeatherScreen> {
     );
   }
 }
+

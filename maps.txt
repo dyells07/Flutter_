@@ -1,0 +1,216 @@
+import 'package:flutter/material.dart';
+import 'dart:async';
+
+import 'package:flutter_polyline_points/flutter_polyline_points.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:geolocator/geolocator.dart';
+
+class ShowMap extends StatefulWidget {
+
+
+  const ShowMap(
+      {Key? key,
+   
+      }
+      )
+      : super(key: key);
+
+  @override
+  State<ShowMap> createState() => _ShowMapState();
+}
+
+class _ShowMapState extends State<ShowMap> {
+  final Completer<GoogleMapController> _controller = Completer();
+  static final CameraPosition _initialCameraPosition =
+      CameraPosition(target: LatLng(28.26689, 83.96851), zoom: 14.5);
+  late LatLng destination = LatLng(
+28.26689, 83.96851
+);
+  late LatLng sourceLocation = LatLng(28.22689, 83.92851);
+  String googleApikey =
+      "AIzaSyDsu8XJg4qVTR66AYbUjhegV4jbbKwRA6U"; 
+  Map<PolylineId, Polyline> polylines = {};
+  final Set<Marker> _markers = {};
+  List<LatLng> polylineCoordinates = [];
+  PolylinePoints polylinePoints = PolylinePoints();
+
+  double userLatitude = 0.0;
+  double userLongitude = 0.0;
+
+ 
+
+  late LatLng orderSource = sourceLocation; 
+  late LatLng orderDestination = destination;
+
+  // Customer's address
+
+  Future<Position> getUserCurrentLocation() async {
+    await Geolocator.requestPermission()
+        .then((value) {})
+        .onError((error, stackTrace) {
+      print('Error : $stackTrace');
+    });
+
+    return await Geolocator.getCurrentPosition(
+      desiredAccuracy: LocationAccuracy.high,
+    );
+  }
+
+
+
+  // Define a timer variable
+  Timer? _cameraUpdateTimer;
+
+// Function to start the timer
+  void _startCameraUpdateTimer() {
+    // Set up a timer to call _moveCameraToCurrentPosition every 10 seconds
+    _cameraUpdateTimer = Timer.periodic(Duration(seconds: 10), (timer) {
+      _moveCameraToCurrentPosition();
+    });
+  }
+
+// Function to move the camera to the current position
+  Future<void> _moveCameraToCurrentPosition() async {
+    final GoogleMapController controller = await _controller.future;
+    Position value = await getUserCurrentLocation();
+    setState(() {
+      userLatitude = value.latitude;
+      userLongitude = value.longitude;
+      controller.animateCamera(
+        CameraUpdate.newCameraPosition(
+          CameraPosition(
+              target: LatLng(userLatitude, userLongitude), zoom: 15.5),
+        ),
+      );
+      _addMarker(MarkerId("userLocation"), LatLng(userLatitude, userLongitude),
+          "User", Colors.red);
+    });
+  }
+
+// Function to stop the timer (call this when needed)
+  void _stopCameraUpdateTimer() {
+    if (_cameraUpdateTimer != null) {
+      _cameraUpdateTimer!.cancel();
+    }
+  }
+
+  _addPolyLine() {
+    PolylineId id = PolylineId("poly");
+    Polyline polyline = Polyline(
+        width: 3,
+        polylineId: id,
+        color: Color.fromARGB(255, 189, 63, 5),
+        points: polylineCoordinates);
+    polylines[id] = polyline;
+    setState(() {});
+  }
+
+  Future<void> _getPolyline() async {
+    polylineCoordinates.clear(); // Clear the existing coordinates
+
+
+    // Get the route points between source and destination
+    PolylineResult result = await polylinePoints.getRouteBetweenCoordinates(
+      googleApikey,
+      PointLatLng(orderSource.latitude, orderSource.longitude),
+      PointLatLng(orderDestination.latitude, orderDestination.longitude),
+    );
+
+    if (result.points.isNotEmpty) {
+      result.points.forEach((PointLatLng point) {
+        polylineCoordinates.add(LatLng(point.latitude, point.longitude));
+      });
+
+      // Add markers for source, destination, and user's current location
+      _addMarker(MarkerId('source'), orderSource, 'Source', Colors.green);
+      _addMarker(MarkerId('destination'), orderDestination, 'Destination',
+          Colors.blue);
+      /*  _addMarker(MarkerId('userLocation'), LatLng(userLatitude, userLongitude),
+          'You', Colors.red); */
+
+      _addPolyLine();
+    }
+  }
+
+  void _addMarker(
+      MarkerId markerId, LatLng position, String title, Color color) {
+    BitmapDescriptor markerIcon;
+    if (color == Colors.green) {
+      markerIcon =
+          BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen);
+    } else if (color == Colors.blue) {
+      markerIcon =
+          BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue);
+    } else if (color == Colors.red) {
+      markerIcon =
+          BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed);
+    } else {
+      // Set a default icon in case the color is not recognized
+      markerIcon = BitmapDescriptor.defaultMarker;
+    }
+
+    _markers.add(
+      Marker(
+        markerId: markerId,
+        position: position,
+        icon: markerIcon,
+        infoWindow: InfoWindow(title: title),
+      ),
+    );
+  }
+
+  void _setUpInitialMap() async {
+    //await loadUserCurrentLocation();
+    await _getPolyline();
+    await _moveCameraToCurrentPosition();
+  }
+
+  Future<void> loadUserCurrentLocation() async {
+    Position value = await getUserCurrentLocation();
+    userLatitude = value.latitude;
+    userLongitude = value.longitude;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _setUpInitialMap();
+    //_updateRidersLocations();
+    _startCameraUpdateTimer();
+  }
+
+  @override
+  void dispose() {
+    // Stop the camera update timer
+    _stopCameraUpdateTimer();
+
+    // Clear markers and polylines
+    _markers.clear();
+    polylines.clear();
+
+    // Dispose of the GoogleMapController
+    _controller.future.then((controller) {
+      controller.dispose();
+    });
+
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: SafeArea(
+        child: GoogleMap(
+          mapType: MapType.normal,
+          myLocationEnabled: true,
+          initialCameraPosition: _initialCameraPosition,
+          onMapCreated: (GoogleMapController controller) {
+            _controller.complete(controller);
+          },
+          polylines: Set<Polyline>.of(polylines.values),
+          markers: _markers,
+        ),
+      ),
+    );
+  }
+}
